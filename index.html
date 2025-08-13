@@ -2,139 +2,119 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Black & White Appointment Booking</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Appointment Booking</title>
 <style>
     body {
-        background-color: #000;
-        color: #fff;
+        background-color: black;
+        color: white;
         font-family: Arial, sans-serif;
         text-align: center;
         padding: 20px;
     }
     h1 {
-        border-bottom: 2px solid #fff;
-        padding-bottom: 10px;
+        color: white;
     }
     form {
-        max-width: 400px;
-        margin: auto;
-        background: #111;
+        background-color: #222;
         padding: 20px;
-        border-radius: 10px;
+        border-radius: 8px;
+        display: inline-block;
+        text-align: left;
     }
     label {
         display: block;
-        margin-top: 15px;
-        text-align: left;
+        margin: 10px 0 5px;
     }
     input, button {
         width: 100%;
         padding: 10px;
-        margin-top: 5px;
-        border: none;
+        margin-bottom: 15px;
         border-radius: 5px;
+        border: none;
+        font-size: 14px;
     }
     input {
-        background: #222;
-        color: #fff;
+        background-color: white;
+        color: black;
     }
     button {
-        background: #fff;
-        color: #000;
+        background-color: white;
+        color: black;
         font-weight: bold;
         cursor: pointer;
     }
     button:hover {
-        background: #ddd;
-    }
-    .booked {
-        color: red;
-        font-size: 14px;
-        margin-top: 5px;
+        background-color: #ddd;
     }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+(function(){
+    emailjs.init("BH_FJZeX66gd4-ZTA"); // Public Key
+})();
+
+// Simple random Google Meet link generator
+function generateMeetLink() {
+    let chars = 'abcdefghijklmnopqrstuvwxyz';
+    let segment = () => Array.from({length: 3}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+    return `https://meet.google.com/${segment()}-${segment()}-${segment()}`;
+}
+
+function sendAppointment(e) {
+    e.preventDefault();
+
+    let name = document.getElementById("name").value.trim();
+    let email = document.getElementById("email").value.trim();
+    let date = document.getElementById("date").value;
+    let time = document.getElementById("time").value;
+
+    if (!name || !email || !date || !time) {
+        alert("Please fill all fields.");
+        return;
+    }
+
+    let meetLink = generateMeetLink();
+
+    let templateParams = {
+        user_name: name,
+        user_email: email,
+        appointment_date: date,
+        appointment_time: time,
+        meeting_link: meetLink,
+        admin_email_1: "kumarishubhangini9440@gmail.com",
+        admin_email_2: "sanskarpani97@gmail.com"
+    };
+
+    // Send to user
+    emailjs.send("service_lku228c", "template_wrguzjx", templateParams)
+    .then(() => {
+        alert("Appointment booked! Meeting link sent to your email.");
+    }, (error) => {
+        console.error("Error:", error);
+        alert("Failed to send email.");
+    });
+}
+</script>
 </head>
 <body>
 
 <h1>Book Your Appointment</h1>
-
-<form id="bookingForm">
+<form onsubmit="sendAppointment(event)">
     <label>Name:</label>
-    <input type="text" id="name" required>
-    
+    <input type="text" id="name" placeholder="Enter your name">
+
     <label>Email:</label>
-    <input type="email" id="email" required>
-    
+    <input type="email" id="email" placeholder="Enter your email">
+
     <label>Date:</label>
-    <input type="date" id="date" required>
-    
-    <label>Meeting Link:</label>
-    <input type="url" id="link" required>
-    
+    <input type="date" id="date">
+
+    <label>Time:</label>
+    <input type="time" id="time">
+
     <button type="submit">Book Appointment</button>
-    <div id="status" class="booked"></div>
 </form>
-
-<!-- EmailJS Library -->
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@2.6.4/dist/email.min.js"></script>
-<script>
-    (function(){
-        emailjs.init("BH_FJZeX66gd4-ZTA"); // Replace with your EmailJS Public Key
-    })();
-
-    const bookedDates = new Set();
-
-    document.getElementById("bookingForm").addEventListener("submit", function(e) {
-        e.preventDefault();
-
-        const name = document.getElementById("name").value;
-        const email = document.getElementById("email").value;
-        const date = document.getElementById("date").value;
-        const link = document.getElementById("link").value;
-
-        const statusDiv = document.getElementById("status");
-
-        // Check if date is already booked
-        if (bookedDates.has(date)) {
-            statusDiv.textContent = "Sorry, this date is already booked!";
-            return;
-        }
-
-        // Mark as booked
-        bookedDates.add(date);
-        statusDiv.textContent = "Appointment with Scale Service booked successfully!";
-
-        // Email content
-        const templateParams = {
-            name: name,
-            email: email,
-            date: date,
-            link: link
-        };
-
-        // Send email to user
-        emailjs.send("service_71pvhhg", "template_wrguzjx", {
-            to_email: email,
-            from_name: "Appointment System",
-            message: `Hello ${name},\n\nYour appointment is confirmed for ${date}.\nMeeting Link: ${link}\n\nThank you!`
-        }).then(() => {
-            console.log("User email sent.");
-        });
-
-        // Send email to both fixed addresses
-        const adminEmails = ["kumarishubhangini9440@gmail.com", "sanskarpani97@gmail.com"];
-        adminEmails.forEach(adminEmail => {
-            emailjs.send("service_71pvhhg", "template_wrguzjx", {
-                to_email: adminEmail,
-                from_name: "Appointment System",
-                message: `New appointment booked:\nName: ${name}\nEmail: ${email}\nDate: ${date}\nMeeting Link: ${link}`
-            }).then(() => {
-                console.log(`Admin email sent to ${adminEmail}`);
-            });
-        });
-    });
-</script>
 
 </body>
 </html>
