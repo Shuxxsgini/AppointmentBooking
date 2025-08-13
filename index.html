@@ -1,120 +1,648 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Appointment Booking</title>
-<style>
-    body {
-        background-color: black;
-        color: white;
-        font-family: Arial, sans-serif;
-        text-align: center;
-        padding: 20px;
-    }
-    h1 {
-        color: white;
-    }
-    form {
-        background-color: #222;
-        padding: 20px;
-        border-radius: 8px;
-        display: inline-block;
-        text-align: left;
-    }
-    label {
-        display: block;
-        margin: 10px 0 5px;
-    }
-    input, button {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-        border: none;
-        font-size: 14px;
-    }
-    input {
-        background-color: white;
-        color: black;
-    }
-    button {
-        background-color: white;
-        color: black;
-        font-weight: bold;
-        cursor: pointer;
-    }
-    button:hover {
-        background-color: #ddd;
-    }
-</style>
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
-<script>
-(function(){
-    emailjs.init("BH_FJZeX66gd4-ZTA"); // Public Key
-})();
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AppointMate – Appointment Booking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
-// Simple random Google Meet link generator
-function generateMeetLink() {
-    let chars = 'abcdefghijklmnopqrstuvwxyz';
-    let segment = () => Array.from({length: 3}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-    return `https://meet.google.com/${segment()}-${segment()}-${segment()}`;
-}
+  <!-- Optional: EmailJS (for real emails; otherwise app simulates email in console) -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
-function sendAppointment(e) {
-    e.preventDefault();
+  <style>
+    :root{--primary:#4f46e5;--primary-600:#4f46e5;--primary-700:#4338ca;}
+    html,body{font-family:"Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; background:#f8fafc;}
+    .calendar-day{transition:all .15s ease;}
+    .calendar-day:hover:not(.disabled){background:#eef2ff; cursor:pointer;}
+    .calendar-day.selected{background:var(--primary); color:#fff; font-weight:600;}
+    .calendar-day.disabled{color:#94a3b8; cursor:not-allowed;}
+    .time-slot{transition:all .15s ease; border:1px solid #e2e8f0; border-radius:.5rem; padding:.5rem .75rem; text-align:center;}
+    .time-slot:hover:not(.booked){background:#eef2ff; cursor:pointer;}
+    .time-slot.selected{background:var(--primary); color:#fff; border-color:transparent;}
+    .time-slot.booked{background:#f1f5f9; color:#94a3b8; cursor:not-allowed;}
+    .step-active{background:var(--primary-600)!important; color:#fff!important; border-color:var(--primary-600)!important;}
+    .step-done{background:var(--primary-600)!important; color:#fff!important;}
+    /* Simple toast */
+    #toast{position:fixed; top:16px; right:16px; z-index:9999; display:none;}
+  </style>
+</head>
+<body class="bg-gray-50">
 
-    let name = document.getElementById("name").value.trim();
-    let email = document.getElementById("email").value.trim();
-    let date = document.getElementById("date").value;
-    let time = document.getElementById("time").value;
+  <!-- Toast -->
+  <div id="toast" class="rounded-md bg-gray-900 text-white px-4 py-3 shadow-lg"></div>
 
-    if (!name || !email || !date || !time) {
-        alert("Please fill all fields.");
-        return;
+  <!-- Navbar -->
+  <nav class="bg-white/80 backdrop-blur border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-600 text-white font-bold">A</span>
+        <span class="text-xl font-semibold text-gray-900">AppointMate</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="admin-toggle" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+          <i class="fa-solid fa-gauge"></i> Admin Panel
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- User Section -->
+    <section id="user-section">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Book Your Appointment</h1>
+        <p class="text-gray-600 max-w-2xl mx-auto">Pick a date and a 30-minute slot. Add your details and you’ll get a confirmation with a meeting link.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+        <div class="p-6">
+          <!-- Steps -->
+          <div class="flex items-center justify-between mb-8 relative">
+            <div class="flex flex-col items-center w-1/3">
+              <div id="step-1" class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold mb-1">1</div>
+              <span class="text-xs text-gray-600">Select Date</span>
+            </div>
+            <div class="h-1 bg-gray-200 absolute top-5 left-1/4 right-1/4"></div>
+            <div class="flex flex-col items-center w-1/3">
+              <div id="step-2" class="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold mb-1">2</div>
+              <span class="text-xs text-gray-600">Select Time</span>
+            </div>
+            <div class="h-1 bg-gray-200 absolute top-5 left-2/4 right-1/4"></div>
+            <div class="flex flex-col items-center w-1/3">
+              <div id="step-3" class="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold mb-1">3</div>
+              <span class="text-xs text-gray-600">Your Details</span>
+            </div>
+          </div>
+
+          <!-- Calendar -->
+          <div id="calendar-section" class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+              <h2 id="month-label" class="text-xl font-semibold text-gray-800">Select a Date</h2>
+              <div class="flex gap-2">
+                <button id="prev-month" class="p-2 rounded-md hover:bg-gray-100"><i class="fas fa-chevron-left"></i></button>
+                <button id="next-month" class="p-2 rounded-md hover:bg-gray-100"><i class="fas fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div class="grid grid-cols-7 gap-2 text-xs font-medium text-gray-500 mb-2">
+              <div class="text-center">Sun</div><div class="text-center">Mon</div><div class="text-center">Tue</div>
+              <div class="text-center">Wed</div><div class="text-center">Thu</div><div class="text-center">Fri</div><div class="text-center">Sat</div>
+            </div>
+            <div id="calendar" class="grid grid-cols-7 gap-2"></div>
+            <p class="text-sm text-gray-500 mt-3">
+              <span class="inline-block w-3 h-3 rounded-full bg-indigo-500 mr-1"></span>Selected
+              <span class="inline-block w-3 h-3 rounded-full bg-gray-200 ml-4 mr-1"></span>Available
+              <span class="inline-block w-3 h-3 rounded-full bg-gray-400 ml-4 mr-1"></span>Past/Disabled
+            </p>
+          </div>
+
+          <!-- Time Slots -->
+          <div id="time-section" class="mb-8 hidden">
+            <h2 class="text-xl font-semibold text-gray-800 mb-1">Available Time Slots</h2>
+            <p class="text-gray-600 mb-4" id="selected-date-text"></p>
+            <div id="time-slots-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+          </div>
+
+          <!-- Booking Form -->
+          <div id="form-section" class="hidden">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Your Information</h2>
+            <form id="booking-form" class="grid grid-cols-1 gap-5">
+              <div>
+                <label for="full-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input id="full-name" required class="mt-1 block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border"/>
+              </div>
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                <input id="email" type="email" required class="mt-1 block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border"/>
+              </div>
+              <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
+                <input id="phone" type="tel" required class="mt-1 block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border"/>
+              </div>
+              <div>
+                <label for="location" class="block text-sm font-medium text-gray-700">Location (City/Area)</label>
+                <input id="location" required class="mt-1 block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border"/>
+              </div>
+              <div>
+                <label for="notes" class="block text-sm font-medium text-gray-700">Additional Notes (Optional)</label>
+                <textarea id="notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border"></textarea>
+              </div>
+              <div class="flex justify-between pt-2">
+                <button type="button" id="back-to-time" class="px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50">Back</button>
+                <button type="submit" class="px-4 py-2 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Confirm Booking</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Confirmation -->
+          <div id="confirmation-section" class="hidden">
+            <div class="text-center">
+              <div class="mx-auto flex items-center justify-center w-12 h-12 rounded-full bg-green-100">
+                <i class="fas fa-check text-green-600 text-xl"></i>
+              </div>
+              <h2 class="mt-3 text-xl font-semibold text-gray-900">Booking Confirmed!</h2>
+              <div class="mt-4 max-w-xl mx-auto text-gray-700">
+                <div id="confirmation-details" class="text-left bg-gray-50 p-4 rounded-md border border-gray-200"></div>
+                <div class="flex gap-3 mt-4 justify-center">
+                  <a id="ics-download" class="px-3 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50" download>Download .ics</a>
+                  <a id="gcal-link" target="_blank" class="px-3 py-2 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Add to Google Calendar</a>
+                </div>
+                <p class="mt-4 text-sm text-gray-500">A confirmation email with your appointment details and meeting link has been sent (or simulated if email isn’t configured).</p>
+              </div>
+              <div class="mt-6">
+                <button id="new-booking" class="px-4 py-2 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">Book Another Appointment</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin Section -->
+    <section id="admin-section" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+        <button id="user-toggle" class="inline-flex items-center gap-2 px-4 py-2 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+          <i class="fa-solid fa-calendar"></i> Back to Booking
+        </button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Scheduled Appointments</h3>
+        </div>
+        <div class="p-4">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="appointments-list" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ---------- OPTIONAL: EmailJS setup ----------
+    // 1) Create account at https://www.emailjs.com
+    // 2) Add Email Service + Template with variables:
+    //    fullName, email, phone, location, date, time, meetingLink, notes
+    // 3) Fill the 3 constants below:
+    const EMAILJS_PUBLIC_KEY = "YOUR_EMAILJS_PUBLIC_KEY";
+    const EMAILJS_SERVICE_ID = "YOUR_EMAILJS_SERVICE_ID";
+    const EMAILJS_TEMPLATE_ID = "YOUR_EMAILJS_TEMPLATE_ID";
+
+    if (typeof emailjs !== "undefined" && EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
+      emailjs.init(EMAILJS_PUBLIC_KEY);
     }
 
-    let meetLink = generateMeetLink();
-
-    let templateParams = {
-        user_name: name,
-        user_email: email,
-        appointment_date: date,
-        appointment_time: time,
-        meeting_link: meetLink,
-        admin_email_1: "kumarishubhangini9440@gmail.com",
-        admin_email_2: "sanskarpani97@gmail.com"
+    // ---------- Utilities ----------
+    const fmtDateISO = (d) => d.toISOString().slice(0,10);
+    const pad = (n) => (n<10 ? "0"+n : ""+n);
+    const niceDate = (iso) => {
+      const d = new Date(iso + "T00:00:00");
+      return d.toLocaleDateString(undefined, {weekday:"short", year:"numeric", month:"short", day:"numeric"});
+    };
+    const showToast = (msg, ms=2200) => {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=>{t.style.display="none";}, ms);
     };
 
-    // Send to user
-    emailjs.send("service_lku228c", "template_wrguzjx", templateParams)
-    .then(() => {
-        alert("Appointment booked! Meeting link sent to your email.");
-    }, (error) => {
-        console.error("Error:", error);
-        alert("Failed to send email.");
+    // ---------- "Database" (localStorage) ----------
+    const DB_KEY = "appointments_db_v1";
+    const db = {
+      load(){
+        try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; }
+        catch { return {}; }
+      },
+      save(data){ localStorage.setItem(DB_KEY, JSON.stringify(data)); },
+      getAll(){
+        const data = this.load();
+        const arr = [];
+        Object.keys(data).forEach(date=>{
+          Object.keys(data[date]).forEach(time=>{
+            arr.push({...data[date][time], date, time});
+          });
+        });
+        // sort by date/time
+        arr.sort((a,b)=> (a.date+b.time).localeCompare(b.date+b.time));
+        return arr;
+      },
+      isBooked(date, time){
+        const data = this.load();
+        return !!(data[date] && data[date][time] && data[date][time].status !== "cancelled");
+      },
+      add(date, time, appt){
+        const data = this.load();
+        if (!data[date]) data[date] = {};
+        data[date][time] = appt;
+        this.save(data);
+      },
+      updateStatus(id, status){
+        const data = this.load();
+        for (const date in data){
+          for (const time in data[date]){
+            if (data[date][time].id === id){
+              data[date][time].status = status;
+              this.save(data);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      delete(id){
+        const data = this.load();
+        for (const date in data){
+          for (const time in data[date]){
+            if (data[date][time].id === id){
+              delete data[date][time];
+              if (Object.keys(data[date]).length===0) delete data[date];
+              this.save(data);
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+    };
+
+    // ---------- Email + Meet link ----------
+    const generateMeetLikeLink = () => {
+      // Simulate a Meet link (for real Meet links, use Calendar API on a backend or EmailJS just to send the link)
+      const token = Math.random().toString(36).slice(2, 5) + "-" + Math.random().toString(36).slice(2, 5) + "-" + Math.random().toString(36).slice(2, 5);
+      return `https://meet.google.com/${token}`;
+    };
+
+    const sendEmail = async (payload) => {
+      // If EmailJS configured, send real email; else simulate in console.
+      if (typeof emailjs !== "undefined" && EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
+        try {
+          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, payload);
+          showToast("Confirmation email sent!");
+        } catch (e) {
+          console.warn("EmailJS error:", e);
+          showToast("Email failed (simulated in console).");
+          console.log("Simulated email payload:", payload);
+        }
+      } else {
+        console.log("Email not configured. Simulating...");
+        console.log("Email payload:", payload);
+        showToast("Email simulated (configure EmailJS for real emails).");
+      }
+    };
+
+    // ---------- ICS + Google Calendar ----------
+    const buildICS = ({title, description, location, startISO, endISO})=>{
+      const dt = (iso)=> iso.replace(/[-:]/g,"").split(".")[0]+"Z";
+      return [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//AppointMate//EN",
+        "CALSCALE:GREGORIAN",
+        "BEGIN:VEVENT",
+        `DTSTAMP:${dt(new Date().toISOString())}`,
+        `DTSTART:${dt(startISO)}`,
+        `DTEND:${dt(endISO)}`,
+        `SUMMARY:${title}`,
+        `DESCRIPTION:${description.replace(/\n/g, "\\n")}`,
+        `LOCATION:${location}`,
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ].join("\r\n");
+    };
+
+    const buildGoogleCalendarLink = ({title, details, location, startISO, endISO})=>{
+      const fmt = s => encodeURIComponent(s);
+      const dt = iso => iso.replace(/[-:]/g,"").split(".")[0]+"Z";
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${fmt(title)}&details=${fmt(details)}&location=${fmt(location)}&dates=${dt(startISO)}/${dt(endISO)}`;
+    };
+
+    // ---------- App State ----------
+    const state = {
+      selectedDate: null, // "YYYY-MM-DD"
+      selectedTime: null, // "HH:MM"
+      month: (new Date()).getMonth(),
+      year: (new Date()).getFullYear()
+    };
+
+    // ---------- DOM ----------
+    const calendarEl = document.getElementById("calendar");
+    const monthLabel = document.getElementById("month-label");
+    const timeSection = document.getElementById("time-section");
+    const formSection = document.getElementById("form-section");
+    const calendarSection = document.getElementById("calendar-section");
+    const confirmationSection = document.getElementById("confirmation-section");
+    const selectedDateText = document.getElementById("selected-date-text");
+    const timeSlotsContainer = document.getElementById("time-slots-container");
+    const bookingForm = document.getElementById("booking-form");
+    const confirmationDetails = document.getElementById("confirmation-details");
+    const icsDownload = document.getElementById("ics-download");
+    const gcalLink = document.getElementById("gcal-link");
+    const adminList = document.getElementById("appointments-list");
+
+    const prevMonthBtn = document.getElementById("prev-month");
+    const nextMonthBtn = document.getElementById("next-month");
+    const backToTimeBtn = document.getElementById("back-to-time");
+    const newBookingBtn = document.getElementById("new-booking");
+    const adminToggleBtn = document.getElementById("admin-toggle");
+    const userToggleBtn = document.getElementById("user-toggle");
+    const userSection = document.getElementById("user-section");
+    const adminSection = document.getElementById("admin-section");
+
+    const step1 = document.getElementById("step-1");
+    const step2 = document.getElementById("step-2");
+    const step3 = document.getElementById("step-3");
+
+    // ---------- Steps UI ----------
+    const setStep = (n)=>{
+      // reset
+      [step1,step2,step3].forEach(s=>{
+        s.classList.remove("step-active","step-done");
+        s.classList.add("border-2","border-gray-300","bg-white","text-gray-900");
+      });
+      // set states
+      if (n>=1){ step1.classList.add("step-active"); step1.classList.remove("border-2","border-gray-300","bg-white"); }
+      if (n>=2){ step1.classList.add("step-done"); step2.classList.add("step-active"); step2.classList.remove("border-2","border-gray-300","bg-white"); }
+      if (n>=3){ step1.classList.add("step-done"); step2.classList.add("step-done"); step3.classList.add("step-active"); step3.classList.remove("border-2","border-gray-300","bg-white"); }
+    };
+
+    // ---------- Calendar ----------
+    const buildCalendar = ()=>{
+      const first = new Date(state.year, state.month, 1);
+      const last = new Date(state.year, state.month + 1, 0);
+      const todayISO = fmtDateISO(new Date());
+
+      monthLabel.textContent = first.toLocaleString(undefined, { month:"long", year:"numeric" });
+      calendarEl.innerHTML = "";
+
+      const blank = first.getDay();
+      for (let i=0;i<blank;i++){
+        const d = document.createElement("div");
+        calendarEl.appendChild(d);
+      }
+
+      for (let day=1; day<=last.getDate(); day++){
+        const date = new Date(state.year, state.month, day);
+        const iso = fmtDateISO(date);
+        const div = document.createElement("div");
+        div.className = "calendar-day rounded-md text-center py-2 border border-gray-200";
+        div.textContent = day;
+
+        // disable past dates
+        if (iso < todayISO){
+          div.classList.add("disabled","bg-gray-100","text-gray-400");
+        } else {
+          div.addEventListener("click", ()=>{
+            state.selectedDate = iso;
+            // highlight selected
+            [...calendarEl.children].forEach(c=> c.classList?.remove?.("selected"));
+            div.classList.add("selected");
+            // go to time slots
+            selectedDateText.textContent = `Selected date: ${niceDate(iso)}`;
+            generateTimeSlots(iso);
+            timeSection.classList.remove("hidden");
+            setStep(2);
+            window.scrollTo({top: timeSection.offsetTop - 80, behavior: "smooth"});
+          });
+        }
+
+        calendarEl.appendChild(div);
+      }
+    };
+
+    // ---------- Time Slots (30 min, 09:00–17:00) ----------
+    const generateTimeSlots = (isoDate)=>{
+      timeSlotsContainer.innerHTML = "";
+      const slots = [];
+      let h = 9, m = 0;
+      while (h < 17 || (h===17 && m===0)){
+        slots.push(`${pad(h)}:${pad(m)}`);
+        m += 30;
+        if (m===60){ m=0; h++; }
+      }
+
+      slots.forEach(t=>{
+        const div = document.createElement("button");
+        div.type = "button";
+        div.textContent = t;
+        div.className = "time-slot";
+        if (db.isBooked(isoDate, t)){
+          div.classList.add("booked");
+        } else {
+          div.addEventListener("click", ()=>{
+            state.selectedTime = t;
+            // highlight selected
+            [...timeSlotsContainer.children].forEach(el=> el.classList?.remove?.("selected"));
+            div.classList.add("selected");
+            // proceed to form
+            timeSection.classList.add("hidden");
+            formSection.classList.remove("hidden");
+            setStep(3);
+          });
+        }
+        timeSlotsContainer.appendChild(div);
+      });
+    };
+
+    // ---------- Admin ----------
+    const loadAdminAppointments = ()=>{
+      adminList.innerHTML = "";
+      const all = db.getAll();
+      if (all.length===0){
+        const row = document.createElement("tr");
+        row.innerHTML = `<td colspan="6" class="px-4 py-6 text-center text-gray-500">No appointments yet.</td>`;
+        adminList.appendChild(row);
+        return;
+      }
+
+      all.forEach(a=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="px-4 py-3">${niceDate(a.date)} • ${a.time}</td>
+          <td class="px-4 py-3 font-medium text-gray-900">${a.fullName}</td>
+          <td class="px-4 py-3">
+            <div>${a.email}</div>
+            <div class="text-gray-500">${a.phone}</div>
+          </td>
+          <td class="px-4 py-3">${a.location || "-"}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs ${
+              a.status==="confirmed" ? "bg-green-100 text-green-700" :
+              a.status==="pending" ? "bg-yellow-100 text-yellow-700" :
+              "bg-gray-100 text-gray-700"}">${a.status}</span>
+          </td>
+          <td class="px-4 py-3 text-right">
+            <div class="inline-flex gap-2">
+              <button data-action="confirm" data-id="${a.id}" class="px-2 py-1 rounded-md border text-xs hover:bg-green-50">Confirm</button>
+              <button data-action="cancel" data-id="${a.id}" class="px-2 py-1 rounded-md border text-xs hover:bg-yellow-50">Cancel</button>
+              <button data-action="delete" data-id="${a.id}" class="px-2 py-1 rounded-md border text-xs hover:bg-red-50">Delete</button>
+            </div>
+          </td>`;
+        adminList.appendChild(tr);
+      });
+    };
+
+    adminList?.addEventListener("click",(e)=>{
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const id = btn.getAttribute("data-id");
+      const action = btn.getAttribute("data-action");
+      if (action==="confirm"){ db.updateStatus(id, "confirmed"); showToast("Appointment confirmed"); }
+      if (action==="cancel"){ db.updateStatus(id, "cancelled"); showToast("Appointment cancelled"); }
+      if (action==="delete"){ db.delete(id); showToast("Appointment deleted"); }
+      loadAdminAppointments();
+      // refresh time slots if current date open
+      if (state.selectedDate) generateTimeSlots(state.selectedDate);
     });
-}
-</script>
-</head>
-<body>
 
-<h1>Book Your Appointment</h1>
-<form onsubmit="sendAppointment(event)">
-    <label>Name:</label>
-    <input type="text" id="name" placeholder="Enter your name">
+    // ---------- Events ----------
+    document.addEventListener("DOMContentLoaded", ()=>{
+      setStep(1);
+      buildCalendar();
+      loadAdminAppointments();
+    });
 
-    <label>Email:</label>
-    <input type="email" id="email" placeholder="Enter your email">
+    prevMonthBtn.addEventListener("click", ()=>{
+      if (state.month===0){ state.month=11; state.year--; } else { state.month--; }
+      buildCalendar();
+    });
+    nextMonthBtn.addEventListener("click", ()=>{
+      if (state.month===11){ state.month=0; state.year++; } else { state.month++; }
+      buildCalendar();
+    });
 
-    <label>Date:</label>
-    <input type="date" id="date">
+    backToTimeBtn.addEventListener("click", ()=>{
+      formSection.classList.add("hidden");
+      timeSection.classList.remove("hidden");
+      setStep(2);
+    });
 
-    <label>Time:</label>
-    <input type="time" id="time">
+    newBookingBtn.addEventListener("click", ()=>{
+      // reset
+      state.selectedDate = null;
+      state.selectedTime = null;
+      confirmationSection.classList.add("hidden");
+      calendarSection.classList.remove("hidden");
+      timeSection.classList.add("hidden");
+      formSection.classList.add("hidden");
+      setStep(1);
+      buildCalendar();
+      window.scrollTo({top: 0, behavior: "smooth"});
+    });
 
-    <button type="submit">Book Appointment</button>
-</form>
+    adminToggleBtn?.addEventListener("click", ()=>{
+      userSection.classList.add("hidden");
+      adminSection.classList.remove("hidden");
+      loadAdminAppointments();
+    });
 
+    userToggleBtn?.addEventListener("click", ()=>{
+      adminSection.classList.add("hidden");
+      userSection.classList.remove("hidden");
+      setStep(1);
+      buildCalendar();
+    });
+
+    // ---------- Booking Submit ----------
+    bookingForm.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      if (!state.selectedDate || !state.selectedTime){
+        showToast("Please select date & time first.");
+        return;
+      }
+      // Fields
+      const fullName = document.getElementById("full-name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const location = document.getElementById("location").value.trim();
+      const notes = document.getElementById("notes").value.trim();
+
+      if (!fullName || !email || !phone || !location){
+        showToast("Please fill all required fields.");
+        return;
+      }
+      if (db.isBooked(state.selectedDate, state.selectedTime)){
+        showToast("That slot was just taken. Pick another.");
+        timeSection.classList.remove("hidden");
+        formSection.classList.add("hidden");
+        setStep(2);
+        return;
+      }
+
+      // Construct appointment
+      const id = Math.random().toString(36).slice(2,10);
+      const meetingLink = generateMeetLikeLink();
+      const appt = { id, fullName, email, phone, location, notes, status: "confirmed", meetingLink };
+      db.add(state.selectedDate, state.selectedTime, appt);
+
+      // Email payload
+      const start = new Date(`${state.selectedDate}T${state.selectedTime}:00`);
+      const end = new Date(start.getTime() + 30*60000);
+
+      const payload = {
+        fullName, email, phone, location, notes,
+        date: niceDate(state.selectedDate),
+        time: state.selectedTime,
+        meetingLink
+      };
+      await sendEmail(payload);
+
+      // Confirmation UI
+      calendarSection.classList.add("hidden");
+      timeSection.classList.add("hidden");
+      formSection.classList.add("hidden");
+      confirmationSection.classList.remove("hidden");
+
+      confirmationDetails.innerHTML = `
+        <div><strong>Name:</strong> ${fullName}</div>
+        <div><strong>Email:</strong> ${email}</div>
+        <div><strong>Phone:</strong> ${phone}</div>
+        <div><strong>Location:</strong> ${location}</div>
+        <div><strong>Date:</strong> ${niceDate(state.selectedDate)}</div>
+        <div><strong>Time:</strong> ${state.selectedTime} (30 min)</div>
+        <div class="truncate"><strong>Meeting link:</strong> <a href="${meetingLink}" class="text-indigo-600 underline" target="_blank">${meetingLink}</a></div>
+        ${notes ? `<div class="mt-2"><strong>Notes:</strong> ${notes}</div>` : "" }
+      `;
+
+      // ICS + Google Calendar
+      const title = "Appointment – AppointMate";
+      const description = `Appointment with ${fullName}\nMeeting link: ${meetingLink}\nNotes: ${notes || "N/A"}`;
+      const ics = buildICS({
+        title, description, location,
+        startISO: start.toISOString(),
+        endISO: end.toISOString()
+      });
+      const icsBlob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+      const icsUrl = URL.createObjectURL(icsBlob);
+      icsDownload.href = icsUrl;
+      icsDownload.download = `appointment_${state.selectedDate}_${state.selectedTime.replace(":","")}.ics`;
+
+      gcalLink.href = buildGoogleCalendarLink({
+        title, details: `Meeting link: ${meetingLink}\n${notes || ""}`, location,
+        startISO: start.toISOString(), endISO: end.toISOString()
+      });
+
+      // Refresh admin
+      loadAdminAppointments();
+      showToast("Booked successfully!");
+    });
+  </script>
 </body>
 </html>
