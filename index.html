@@ -1,148 +1,140 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Appointment Scheduler</title>
-  <style>
+<meta charset="UTF-8">
+<title>Black & White Appointment Booking</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #000;
-      color: #fff;
-      text-align: center;
-      padding: 20px;
+        background-color: #000;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+    }
+    h1 {
+        border-bottom: 2px solid #fff;
+        padding-bottom: 10px;
     }
     form {
-      background: #111;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 400px;
-      margin: auto;
-      box-shadow: 0px 0px 10px #fff;
+        max-width: 400px;
+        margin: auto;
+        background: #111;
+        padding: 20px;
+        border-radius: 10px;
     }
-    label { display: block; margin-top: 10px; }
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      border: 1px solid #fff;
-      background: #000;
-      color: #fff;
-      border-radius: 5px;
+    label {
+        display: block;
+        margin-top: 15px;
+        text-align: left;
+    }
+    input, button {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border: none;
+        border-radius: 5px;
+    }
+    input {
+        background: #222;
+        color: #fff;
     }
     button {
-      margin-top: 15px;
-      padding: 10px;
-      background: #fff;
-      color: #000;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
+        background: #fff;
+        color: #000;
+        font-weight: bold;
+        cursor: pointer;
     }
-    button:hover { background: #ccc; }
-  </style>
-  <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
-  <script>
-    (function() {
-      emailjs.init("YOUR_PUBLIC_KEY"); // Replace with your EmailJS public key
-    })();
-
-    let bookedSlots = {};
-
-    function generateTimeSlots() {
-      let select = document.getElementById("time");
-      select.innerHTML = "";
-      let times = [];
-      for (let hour = 9; hour <= 17; hour++) {
-        times.push(`${hour}:00`);
-        times.push(`${hour}:30`);
-      }
-      times.forEach(time => {
-        let opt = document.createElement("option");
-        opt.value = time;
-        opt.textContent = time;
-        select.appendChild(opt);
-      });
+    button:hover {
+        background: #ddd;
     }
-
-    function bookAppointment(e) {
-      e.preventDefault();
-
-      let date = document.getElementById("date").value;
-      let time = document.getElementById("time").value;
-      let name = document.getElementById("name").value;
-      let location = document.getElementById("location").value;
-      let phone = document.getElementById("phone").value;
-      let email = document.getElementById("email").value;
-
-      if (!date || !time || !name || !location || !phone || !email) {
-        alert("Please fill all fields");
-        return;
-      }
-
-      if (!bookedSlots[date]) bookedSlots[date] = [];
-      if (bookedSlots[date].includes(time)) {
-        alert("This slot is already booked. Please choose another.");
-        return;
-      }
-
-      bookedSlots[date].push(time);
-      let meetLink = "https://meet.google.com/" + Math.random().toString(36).substring(2,7);
-
-      let details = `
-        Appointment Details:
-        Name: ${name}
-        Location: ${location}
-        Phone: ${phone}
-        Email: ${email}
-        Date: ${date}
-        Time: ${time}
-        Meeting Link: ${meetLink}
-      `;
-
-      // Send email to user
-      emailjs.send("service_lku228c", "template_wrguzjx", {
-        to_email: email,
-        subject: "Your Appointment Confirmation",
-        message: details
-      });
-
-      // Send email to admin emails
-      ["kumarishubhangini9440@gmail.com", "sanskarpani97@gmail.com"].forEach(adminEmail => {
-        emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
-          to_email: adminEmail,
-          subject: "New Appointment Booked",
-          message: details
-        });
-      });
-
-      alert("Appointment booked successfully! Confirmation sent to email.");
-      document.getElementById("appointmentForm").reset();
+    .booked {
+        color: red;
+        font-size: 14px;
+        margin-top: 5px;
     }
-
-    window.onload = generateTimeSlots;
-  </script>
+</style>
 </head>
 <body>
-  <h1>Book Your Appointment</h1>
-  <form id="appointmentForm" onsubmit="bookAppointment(event)">
-    <label>Date:</label>
-    <input type="date" id="date" required>
 
-    <label>Time:</label>
-    <select id="time" required></select>
+<h1>Book Your Appointment</h1>
 
+<form id="bookingForm">
     <label>Name:</label>
     <input type="text" id="name" required>
-
-    <label>Location:</label>
-    <input type="text" id="location" required>
-
-    <label>Phone:</label>
-    <input type="tel" id="phone" required>
-
+    
     <label>Email:</label>
     <input type="email" id="email" required>
-
+    
+    <label>Date:</label>
+    <input type="date" id="date" required>
+    
+    <label>Meeting Link:</label>
+    <input type="url" id="link" required>
+    
     <button type="submit">Book Appointment</button>
-  </form>
+    <div id="status" class="booked"></div>
+</form>
+
+<!-- EmailJS Library -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@2.6.4/dist/email.min.js"></script>
+<script>
+    (function(){
+        emailjs.init("BH_FJZeX66gd4-ZTA"); // Replace with your EmailJS Public Key
+    })();
+
+    const bookedDates = new Set();
+
+    document.getElementById("bookingForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById("name").value;
+        const email = document.getElementById("email").value;
+        const date = document.getElementById("date").value;
+        const link = document.getElementById("link").value;
+
+        const statusDiv = document.getElementById("status");
+
+        // Check if date is already booked
+        if (bookedDates.has(date)) {
+            statusDiv.textContent = "Sorry, this date is already booked!";
+            return;
+        }
+
+        // Mark as booked
+        bookedDates.add(date);
+        statusDiv.textContent = "Appointment with Scale Service booked successfully!";
+
+        // Email content
+        const templateParams = {
+            name: name,
+            email: email,
+            date: date,
+            link: link
+        };
+
+        // Send email to user
+        emailjs.send("service_71pvhhg", "template_wrguzjx", {
+            to_email: email,
+            from_name: "Appointment System",
+            message: `Hello ${name},\n\nYour appointment is confirmed for ${date}.\nMeeting Link: ${link}\n\nThank you!`
+        }).then(() => {
+            console.log("User email sent.");
+        });
+
+        // Send email to both fixed addresses
+        const adminEmails = ["kumarishubhangini9440@gmail.com", "sanskarpani97@gmail.com"];
+        adminEmails.forEach(adminEmail => {
+            emailjs.send("service_71pvhhg", "template_wrguzjx", {
+                to_email: adminEmail,
+                from_name: "Appointment System",
+                message: `New appointment booked:\nName: ${name}\nEmail: ${email}\nDate: ${date}\nMeeting Link: ${link}`
+            }).then(() => {
+                console.log(`Admin email sent to ${adminEmail}`);
+            });
+        });
+    });
+</script>
+
 </body>
 </html>
