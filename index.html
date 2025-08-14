@@ -11,6 +11,8 @@
 
   <!-- Optional: EmailJS (for real emails; otherwise app simulates email in console) -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
 
   <style>
     :root{--primary:#4f46e5;--primary-600:#4f46e5;--primary-700:#4338ca;}
@@ -643,6 +645,73 @@
       loadAdminAppointments();
       showToast("Booked successfully!");
     });
+    // Initialize EmailJS
+(function() {
+    emailjs.init("oUgx6UdKZcUUzBCHF"); // Your EmailJS public key
+})();
+
+// Function to send booking details to multiple recipients
+function sendAppointmentDetails(appointmentData) {
+    const recipients = [
+        "kumarishubhangini9440@gmail.com",
+        "sanskarpani97@gmail.com"
+    ];
+
+    recipients.forEach((recipient) => {
+        emailjs.send("service_z1ikgj4", "template_zmh6nl8", {
+            to_email: recipient, // Optional: only if template uses it
+            name: appointmentData.name,
+            email: appointmentData.email,
+            phone: appointmentData.phone,
+            date: appointmentData.date,
+            time: appointmentData.time,
+            meet_link: appointmentData.meetLink
+        })
+        .then((response) => {
+            console.log(`Email sent to ${recipient}:`, response.status, response.text);
+        })
+        .catch((error) => {
+            console.error(`Failed to send to ${recipient}:`, error);
+        });
+    });
+}
+
+// Handle booking form submission
+document.getElementById("bookingForm").addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    // Get form values
+    const name = document.getElementById("name").value;
+    const email = document.getElementById("email").value;
+    const phone = document.getElementById("phone").value;
+    const date = document.getElementById("date").value;
+    const time = document.getElementById("time").value;
+
+    // Generate a simulated Google Meet link
+    const meetLink = "https://meet.google.com/" + Math.random().toString(36).substring(2, 7);
+
+    // Display booking confirmation
+    document.getElementById("confirmationName").textContent = name;
+    document.getElementById("confirmationDate").textContent = date;
+    document.getElementById("confirmationTime").textContent = time;
+    const googleMeetLink = document.getElementById("confirmationMeetLink");
+    googleMeetLink.textContent = meetLink;
+    googleMeetLink.href = meetLink;
+
+    // Send details via EmailJS
+    sendAppointmentDetails({
+        name: name,
+        email: email,
+        phone: phone,
+        date: date,
+        time: time,
+        meetLink: meetLink
+    });
+
+    // Reset form
+    document.getElementById("bookingForm").reset();
+});
+
   </script>
 </body>
 </html>
